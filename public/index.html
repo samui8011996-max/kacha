@@ -63,12 +63,10 @@ a.pill{color:var(--text);text-decoration:none}
 
 #panel{flex:none;background:var(--panel);border-top:1px solid var(--line);padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px));
   display:flex;flex-direction:column;gap:10px}
-.tabs{display:flex;gap:14px;justify-content:center}
+.tabs{display:flex;gap:12px;justify-content:center}
 .tab{font-size:14px;color:var(--mute);padding:4px 2px;border-bottom:2px solid transparent}
 .tab[aria-selected="true"]{color:var(--text);border-bottom-color:var(--rose)}
 .pane{display:flex;flex-direction:column;gap:8px;min-height:116px;justify-content:center}
-#paneFace{max-height:190px;overflow-y:auto;justify-content:flex-start;-webkit-overflow-scrolling:touch}
-#paneFace .row{flex:none}
 .row{display:grid;grid-template-columns:3.4em 1fr 2.4em;align-items:center;gap:12px}
 .row label{font-size:14px}
 .row output{font-size:13px;color:var(--mute);text-align:right;font-variant-numeric:tabular-nums}
@@ -126,7 +124,7 @@ input[type=text]:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
 <main id="stage">
   <div id="start">
     <div class="ring" aria-hidden="true">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#f2a5a0"/><rect x="18.5" y="16.5" width="10" height="6" rx="2.2" fill="#fffaf6"/><rect x="11" y="20" width="42" height="28" rx="7.5" fill="#fffaf6"/><circle cx="32" cy="34" r="8.6" fill="none" stroke="#3b2a3f" stroke-width="1.9"/><circle cx="32" cy="34" r="3.1" fill="#3b2a3f"/><circle cx="45.6" cy="26.2" r="1.5" fill="#f2a5a0"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#f2a5a0"/><g transform="translate(32 32.5) scale(1.12) translate(-24 -25.5)" fill="none" stroke="#fffaf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16h6l3-5h14l3 5h6a3 3 0 0 1 3 3v18a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V19a3 3 0 0 1 3-3z"/><circle cx="24" cy="27" r="8"/></g></svg>
     </div>
     <button class="pill primary big" id="goLive" type="button">開啟即時相機</button>
     <label class="pill big btn" id="goCam" for="fileCam">拍一張照片</label>
@@ -144,6 +142,7 @@ input[type=text]:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
   <div class="tabs" role="tablist">
     <button class="tab" id="tabBeauty" role="tab" aria-selected="true" aria-controls="paneBeauty" type="button">美顏</button>
     <button class="tab" id="tabFace" role="tab" aria-selected="false" aria-controls="paneFace" type="button">臉型</button>
+    <button class="tab" id="tabFeat" role="tab" aria-selected="false" aria-controls="paneFeat" type="button">五官</button>
     <button class="tab" id="tabFilter" role="tab" aria-selected="false" aria-controls="paneFilter" type="button">濾鏡</button>
     <button class="tab" id="tabLiq" role="tab" aria-selected="false" aria-controls="paneLiq" type="button">液化</button>
     <button class="tab" id="tabDeco" role="tab" aria-selected="false" aria-controls="paneDeco" type="button">裝飾</button>
@@ -159,10 +158,12 @@ input[type=text]:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
     <div class="row"><label for="chinw">下巴寬</label><input type="range" id="chinw" min="-100" max="100" value="0" disabled><output id="chinwV">0</output></div>
     <div class="row"><label for="hollow">補頰凹</label><input type="range" id="hollow" min="0" max="100" value="0" disabled><output id="hollowV">0</output></div>
     <div class="row"><label for="cheek">顴骨</label><input type="range" id="cheek" min="0" max="100" value="0" disabled><output id="cheekV">0</output></div>
+    <div class="row hidden" id="sizeRow"><label for="fsize">臉大小</label><input type="range" id="fsize" min="15" max="90" value="45"><output id="fsizeV">45</output></div>
+  </div>
+  <div class="pane hidden" id="paneFeat" role="tabpanel">
     <div class="row"><label for="eye">大眼</label><input type="range" id="eye" min="0" max="100" value="20" disabled><output id="eyeV">20</output></div>
     <div class="row"><label for="nose">鼻翼</label><input type="range" id="nose" min="0" max="100" value="0" disabled><output id="noseV">0</output></div>
     <div class="row"><label for="bridge">鼻樑</label><input type="range" id="bridge" min="0" max="100" value="0" disabled><output id="bridgeV">0</output></div>
-    <div class="row hidden" id="sizeRow"><label for="fsize">臉大小</label><input type="range" id="fsize" min="15" max="90" value="45"><output id="fsizeV">45</output></div>
   </div>
   <div class="pane hidden" id="paneFilter" role="tabpanel">
     <div class="strip" id="chips"></div>
@@ -215,7 +216,7 @@ input[type=text]:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
 </div>
 <div id="toast" class="hidden" role="status"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="face-api.min.js"></script>
 <script>
 (function(){
 "use strict";
@@ -443,7 +444,7 @@ function loadModels(){
       faceapi.nets.tinyFaceDetector.loadFromWeightMap(tf.io.decodeWeights(b64buf(B_DET),W_DET[0].weights));
       faceapi.nets.faceLandmark68TinyNet.loadFromWeightMap(tf.io.decodeWeights(b64buf(B_LMK),W_LMK[0].weights));
       res(true);
-    }catch(e){rej(e);}
+    }catch(e){modelP=null;rej(e);}
   });
   return modelP;
 }
@@ -472,7 +473,7 @@ function photoDetect(keep){
 }
 
 /* ---------- 即時相機 ---------- */
-var detBusy=false,detDead=false,liveRaf=0;
+var detBusy=false,detDead=false,detErr=0,liveRaf=0;
 function stopStream(){
   if(liveRaf){cancelAnimationFrame(liveRaf);liveRaf=0;}
   if(S.stream){S.stream.getTracks().forEach(function(t){t.stop();});S.stream=null;}
@@ -490,7 +491,7 @@ function startLive(facing){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){liveFail("no mediaDevices");return;}
   stopStream();
   navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}}}).then(function(st){
-    decoReset();S.stream=st;S.facing=facing;S.liveOK=true;S.mode="live";S.faces=[];S.manual=null;S.miss=0;S.token++;
+    decoReset();S.stream=st;S.facing=facing;S.liveOK=true;S.mode="live";S.faces=[];S.manual=null;S.miss=0;S.token++;detDead=false;detErr=0;
     video.srcObject=st;setBadge("");updateUI();
     var p=video.play();if(p&&p.catch)p.catch(function(){});
     liveRaf=requestAnimationFrame(liveFrame);
@@ -506,14 +507,16 @@ function liveFrame(){
   upload();S.seed=(S.seed+7)%997;render();
   if(!detBusy&&!detDead){
     detBusy=true;
-    detect(224).then(function(f){
+    detect(320).then(function(f){
+      detErr=0;
       if(S.mode!=="live")return;
       if(f.length){
         if(f.length===S.faces.length){f.forEach(function(nf,i){var op=S.faces[i].pts;nf.pts.forEach(function(p,j){p.x=op[j].x+(p.x-op[j].x)*0.55;p.y=op[j].y+(p.y-op[j].y)*0.55;});});}
         S.faces=f;S.miss=0;
       }else if(++S.miss>4){S.faces=[];}
+      setBadge(S.miss>8?"沒有偵測到臉，臉型和五官調整暫時沒作用":"");
       buildControls();
-    }).catch(function(e){console.error(e);detDead=true;}).then(function(){detBusy=false;});
+    }).catch(function(e){console.error(e);if(++detErr>=5){detDead=true;if(S.mode==="live")setBadge("自動找臉無法使用，臉型和五官調整沒有作用",true);}}).then(function(){detBusy=false;});
   }
 }
 function capture(){
@@ -562,7 +565,7 @@ function pickFilter(f){S.filter=f;
 FILTERS.forEach(function(f){var b=document.createElement("button");b.type="button";b.className="chip";b.textContent=f.name;b.dataset.id=f.id;
   b.setAttribute("aria-pressed",f.id==="none"?"true":"false");b.addEventListener("click",function(){pickFilter(f);});chips.appendChild(b);});
 
-var TABS={beauty:["tabBeauty","paneBeauty"],face:["tabFace","paneFace"],filter:["tabFilter","paneFilter"],liq:["tabLiq","paneLiq"],deco:["tabDeco","paneDeco"],crop:["tabCrop","paneCrop"]};
+var TABS={beauty:["tabBeauty","paneBeauty"],face:["tabFace","paneFace"],feat:["tabFeat","paneFeat"],filter:["tabFilter","paneFilter"],liq:["tabLiq","paneLiq"],deco:["tabDeco","paneDeco"],crop:["tabCrop","paneCrop"]};
 function tab(which){S.tab=which;Object.keys(TABS).forEach(function(k){var on=k===which;$(TABS[k][0]).setAttribute("aria-selected",on?"true":"false");show(TABS[k][1],on);});fit();}
 Object.keys(TABS).forEach(function(k){$(TABS[k][0]).addEventListener("click",function(){tab(k);});});
 $("liqUndo").addEventListener("click",function(){if(!L.undo.length)return;L.d=L.undo.pop();L.dirty=true;render();liqUI();});
