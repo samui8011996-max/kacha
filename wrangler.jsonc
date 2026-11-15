@@ -1,0 +1,6 @@
+{
+  // Cloudflare 上的專案名稱，必須和後台的 Worker 名稱一致
+  "name": "throbbing-fog-f61a",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./public" }
+}
