@@ -45,7 +45,7 @@ a.pill{color:var(--text);text-decoration:none}
 #wrap{position:relative;overflow:hidden;border-radius:10px;background:#000;touch-action:none}
 #view,#deco{position:absolute;left:0;top:0;display:block;touch-action:none}
 #marker{position:absolute;border:2px dashed var(--rose);border-radius:50%;pointer-events:none;transform:translate(-50%,-50%)}
-#badge{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(23,19,26,.82);color:var(--text);
+#badge{position:absolute;left:50%;top:54px;transform:translateX(-50%);background:rgba(23,19,26,.82);color:var(--text);
   padding:6px 12px;border-radius:14px;font-size:13px;max-width:calc(100% - 48px);text-align:center;pointer-events:none}
 #badge.warn{color:var(--warn)}
 #brush{position:absolute;border:1.5px solid var(--text);border-radius:50%;pointer-events:none;transform:translate(-50%,-50%);box-shadow:0 0 0 1px rgba(0,0,0,.5)}
@@ -53,6 +53,9 @@ a.pill{color:var(--text);text-decoration:none}
 .pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .pair .pill{background:transparent}
 #flip{position:absolute;right:26px;top:10px;background:rgba(23,19,26,.72)}
+#flash{position:absolute;left:26px;top:10px;background:rgba(23,19,26,.72)}
+#zoomBtn{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);background:rgba(23,19,26,.72);min-width:56px;font-variant-numeric:tabular-nums}
+#flashFx{position:fixed;inset:0;background:#fff;z-index:30}
 
 #start{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:16px;width:100%;max-width:340px}
 #start .ring{width:96px;height:96px;margin-bottom:4px}
@@ -136,6 +139,8 @@ input[type=text]:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
   <div id="brush" class="hidden"></div>
   <div id="badge" class="hidden" role="status"></div>
   <button class="pill hidden" id="flip" type="button">切換鏡頭</button>
+  <button class="pill hidden" id="flash" type="button" aria-pressed="false">閃光燈 關</button>
+  <button class="pill hidden" id="zoomBtn" type="button" aria-label="變焦">1x</button>
 </main>
 
 <section id="panel" aria-label="美顏與濾鏡">
@@ -223,6 +228,7 @@ input[type=text]:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
   </div>
 </section>
 
+<div id="flashFx" class="hidden" aria-hidden="true"></div>
 <div id="sheet" class="hidden" role="dialog" aria-label="儲存照片">
   <img id="sheetImg" alt="美顏後的照片">
   <p>長按照片，選「儲存到照片」</p>
@@ -334,7 +340,7 @@ function updateUI(){
   show("goLive",S.liveOK!==false);
   show("reLib",!idle);show("save",photo);
   show("reLive",photo&&S.liveOK===true);show("reCam",photo&&S.liveOK!==true);
-  show("flip",live);show("shutter",live);
+  show("flip",live);show("flash",live);show("zoomBtn",live);show("shutter",live);
   show("sizeRow",photo&&!!S.manual&&!S.faces.length);
   [sl.slim,sl.vface,sl.flen,sl.chinl,sl.chinw,sl.hollow,sl.cheek,sl.eye,sl.nose,sl.bridge,sl.smooth,sl.white,$("compare"),$("reset")].forEach(function(e){e.disabled=idle;});
   Array.prototype.forEach.call(document.querySelectorAll(".pnote"),function(e){e.classList.toggle("hidden",photo);});
@@ -512,8 +518,8 @@ function startLive(facing){
   if(!glOK){toast("這個瀏覽器不支援 WebGL，無法美顏。");return;}
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){liveFail("no mediaDevices");return;}
   stopStream();
-  navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}}}).then(function(st){
-    decoReset();S.stream=st;S.facing=facing;S.liveOK=true;S.mode="live";S.faces=[];S.all=[];M.items=[];S.manual=null;S.miss=0;S.token++;detDead=false;detErr=0;
+  navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:facing,width:{ideal:1920},height:{ideal:1080}}}).then(function(st){
+    decoReset();Z.z=1;Z.dz=1;Z.native=0;Z.cap=undefined;$("zoomBtn").textContent="1x";S.stream=st;S.facing=facing;S.liveOK=true;S.mode="live";S.faces=[];S.all=[];M.items=[];S.manual=null;S.miss=0;S.token++;detDead=false;detErr=0;
     video.srcObject=st;setBadge("");updateUI();
     var p=video.play();if(p&&p.catch)p.catch(function(){});
     liveRaf=requestAnimationFrame(liveFrame);
@@ -525,7 +531,7 @@ function liveFrame(){
   var vw=video.videoWidth,vh=video.videoHeight;if(video.readyState<2||!vw)return;
   var k=Math.min(1,1280/Math.max(vw,vh)),W=Math.round(vw*k),H=Math.round(vh*k);
   alloc(W,H);
-  wctx.save();if(S.facing==="user"){wctx.translate(W,0);wctx.scale(-1,1);}wctx.drawImage(video,0,0,W,H);wctx.restore();
+  wctx.save();if(S.facing==="user"){wctx.translate(W,0);wctx.scale(-1,1);}var zw=vw/Z.dz,zh=vh/Z.dz;wctx.drawImage(video,(vw-zw)/2,(vh-zh)/2,zw,zh,0,0,W,H);wctx.restore();
   upload();S.seed=(S.seed+7)%997;render();
   if(!detBusy&&!detDead){
     detBusy=true;
@@ -541,10 +547,38 @@ function liveFrame(){
     }).catch(function(e){console.error(e);if(++detErr>=5){detDead=true;if(S.mode==="live")setBadge("自動找臉無法使用，臉型和五官調整沒有作用",true);}}).then(function(){detBusy=false;});
   }
 }
-function capture(){
-  if(S.mode!=="live"||!S.W)return;
+/* 變焦：鏡頭支援就先用鏡頭變焦，剩下的用裁切放大補 */
+var Z={z:1,dz:1,native:0,cap:undefined,busy:false,max:5};
+function camTrack(){return S.stream&&S.stream.getVideoTracks()[0];}
+function camCaps(){var tr=camTrack();try{return tr&&tr.getCapabilities?tr.getCapabilities():{};}catch(_){return {};}}
+function setZoom(z){
+  z=Math.max(1,Math.min(Z.max,z));Z.z=z;
+  if(Z.cap===undefined){var c=camCaps().zoom;Z.cap=(c&&c.max>1.05)?c:null;}
+  var nat=1;
+  if(Z.cap){nat=Math.max(Math.max(1,Z.cap.min||1),Math.min(Z.cap.max,z));
+    if(!Z.busy&&Math.abs(nat-Z.native)>0.02){Z.busy=true;var tr=camTrack();
+      tr.applyConstraints({advanced:[{zoom:nat}]}).then(function(){Z.native=nat;},function(){Z.cap=null;Z.native=0;}).then(function(){Z.busy=false;if(S.mode==="live")setZoom(Z.z);});}
+    nat=Z.native||1;}
+  Z.dz=Math.max(1,z/nat);
+  $("zoomBtn").textContent=(Math.round(z*10)/10)+"x";
+}
+$("zoomBtn").addEventListener("click",function(){setZoom(Z.z<1.5?2:Z.z<2.5?3:1);});
+$("flash").addEventListener("click",function(){S.flash=!S.flash;$("flash").setAttribute("aria-pressed",S.flash?"true":"false");$("flash").textContent="閃光燈 "+(S.flash?"開":"關");});
+function snap(){
+  if(S.mode!=="live")return;
   if(liveRaf){cancelAnimationFrame(liveRaf);liveRaf=0;}
   S.mode="photo";stopStream();photoInit();updateUI();render();photoDetect(true);
+}
+var snapping=false;
+function capture(){
+  if(S.mode!=="live"||!S.W||snapping)return;
+  if(!S.flash){snap();return;}
+  snapping=true;
+  function done(){snapping=false;show("flashFx",false);snap();}
+  var tr=camTrack();
+  if(camCaps().torch&&S.facing!=="user"){
+    tr.applyConstraints({advanced:[{torch:true}]}).then(function(){setTimeout(done,400);},function(){show("flashFx",true);setTimeout(done,350);});
+  }else{show("flashFx",true);setTimeout(done,350);}
 }
 
 /* ---------- 匯入照片 ---------- */
@@ -698,6 +732,8 @@ function brushAt(e,p){var sr=stage.getBoundingClientRect(),d=brushR()*2*p.k;brus
   brush.style.width=d+"px";brush.style.height=d+"px";brush.classList.remove("hidden");}
 function two(){var k=Object.keys(ptrs);if(k.length<2)return null;var a=ptrs[k[0]],b=ptrs[k[1]];return {d:Math.hypot(b.x-a.x,b.y-a.y)||1,a:Math.atan2(b.y-a.y,b.x-a.x)};}
 ov.addEventListener("pointerdown",function(e){
+  if(S.mode==="live"){e.preventDefault();try{ov.setPointerCapture(e.pointerId);}catch(_){}
+    ptrs[e.pointerId]=pt(e);var tz=two();act=tz?{k:"zoom",d:tz.d,z:Z.z}:null;return;}
   if(S.mode!=="photo")return;
   e.preventDefault();try{ov.setPointerCapture(e.pointerId);}catch(_){}
   var p=pt(e);ptrs[e.pointerId]=p;var n=Object.keys(ptrs).length,it;
@@ -723,6 +759,7 @@ ov.addEventListener("pointermove",function(e){
   if(act.k==="liq"){liqPush(act.p.x,act.p.y,p.x-act.p.x,p.y-act.p.y);act.p=p;brushAt(e,p);schedule();}
   else if(act.k==="crop"&&S.crop){S.crop.cx=act.cx+p.x-act.p.x;S.crop.cy=act.cy+p.y-act.p.y;drawDeco();}
   else if(act.k==="mask"){act.m.x=act.x+p.x-act.p.x;act.m.y=act.y+p.y-act.p.y;drawDeco();}
+  else if(act.k==="zoom"){var tq=two();if(tq)setZoom(act.z*tq.d/act.d);}
   else if(act.k==="draw"){act.it.pts.push([p.x,p.y]);drawDeco();}
   else if(act.k==="pinch"&&it){var t=two();if(t){it.s=Math.max(0.1,Math.min(3,act.s*t.d/act.d));it.r=act.r+t.a-act.a;sl.dsize.value=Math.round(it.s*100);syncSlider(sl.dsize);drawDeco();}}
   else if(act.k==="drag"&&it){it.x=act.x+p.x-act.p.x;it.y=act.y+p.y-act.p.y;drawDeco();}
