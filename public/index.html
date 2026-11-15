@@ -142,7 +142,7 @@ input[type=text]:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
   <div class="tabs" role="tablist">
     <button class="tab" id="tabBeauty" role="tab" aria-selected="true" aria-controls="paneBeauty" type="button">美顏</button>
     <button class="tab" id="tabFace" role="tab" aria-selected="false" aria-controls="paneFace" type="button">臉型</button>
-    <button class="tab" id="tabFeat" role="tab" aria-selected="false" aria-controls="paneFeat" type="button">五官</button>
+    <button class="tab" id="tabFeat" role="tab" aria-selected="false" aria-controls="paneFeat" type="button">細部</button>
     <button class="tab" id="tabFilter" role="tab" aria-selected="false" aria-controls="paneFilter" type="button">濾鏡</button>
     <button class="tab" id="tabLiq" role="tab" aria-selected="false" aria-controls="paneLiq" type="button">液化</button>
     <button class="tab" id="tabDeco" role="tab" aria-selected="false" aria-controls="paneDeco" type="button">裝飾</button>
@@ -154,8 +154,8 @@ input[type=text]:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
   </div>
   <div class="pane hidden" id="paneFace" role="tabpanel">
     <div class="row"><label for="slim">瘦臉</label><input type="range" id="slim" min="0" max="100" value="40" disabled><output id="slimV">40</output></div>
-    <div class="row"><label for="chinl">下巴長</label><input type="range" id="chinl" min="-100" max="100" value="0" disabled><output id="chinlV">0</output></div>
-    <div class="row"><label for="chinw">下巴寬</label><input type="range" id="chinw" min="-100" max="100" value="0" disabled><output id="chinwV">0</output></div>
+    <div class="row"><label for="vface">小V臉</label><input type="range" id="vface" min="0" max="100" value="0" disabled><output id="vfaceV">0</output></div>
+    <div class="row"><label for="flen">臉長</label><input type="range" id="flen" min="-100" max="100" value="0" disabled><output id="flenV">0</output></div>
     <div class="row"><label for="hollow">補頰凹</label><input type="range" id="hollow" min="0" max="100" value="0" disabled><output id="hollowV">0</output></div>
     <div class="row"><label for="cheek">顴骨</label><input type="range" id="cheek" min="0" max="100" value="0" disabled><output id="cheekV">0</output></div>
     <div class="row hidden" id="sizeRow"><label for="fsize">臉大小</label><input type="range" id="fsize" min="15" max="90" value="45"><output id="fsizeV">45</output></div>
@@ -164,6 +164,8 @@ input[type=text]:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
     <div class="row"><label for="eye">大眼</label><input type="range" id="eye" min="0" max="100" value="20" disabled><output id="eyeV">20</output></div>
     <div class="row"><label for="nose">鼻翼</label><input type="range" id="nose" min="0" max="100" value="0" disabled><output id="noseV">0</output></div>
     <div class="row"><label for="bridge">鼻樑</label><input type="range" id="bridge" min="0" max="100" value="0" disabled><output id="bridgeV">0</output></div>
+    <div class="row"><label for="chinl">下巴長</label><input type="range" id="chinl" min="-100" max="100" value="0" disabled><output id="chinlV">0</output></div>
+    <div class="row"><label for="chinw">下巴寬</label><input type="range" id="chinw" min="-100" max="100" value="0" disabled><output id="chinwV">0</output></div>
   </div>
   <div class="pane hidden" id="paneFilter" role="tabpanel">
     <div class="strip" id="chips"></div>
@@ -225,9 +227,9 @@ var B_DET="poeenUJmna7R7Li2cB4hRbOe/25yfaSLuNC7Oa07Vmx1Z4pYhUF+isqpl5K0UGVXroZEp
 
 var $=function(id){return document.getElementById(id)};
 var view=$("view"), stage=$("stage"), badge=$("badge"), marker=$("marker"), video=$("video");
-var sl={};["slim","chinl","chinw","hollow","cheek","eye","nose","bridge","smooth","white","fsize","famt","bsize","dsize","pen","csize"].forEach(function(k){sl[k]=$(k);});
-var FACE={chinl:1,chinw:1,hollow:1,slim:1,cheek:1,eye:1,nose:1,bridge:1};
-var DEFAULTS={chinl:0,chinw:0,hollow:0,slim:40,cheek:0,eye:20,nose:0,bridge:0,smooth:50,white:20,famt:80};
+var sl={};["slim","vface","flen","chinl","chinw","hollow","cheek","eye","nose","bridge","smooth","white","fsize","famt","bsize","dsize","pen","csize"].forEach(function(k){sl[k]=$(k);});
+var FACE={vface:1,flen:1,chinl:1,chinw:1,hollow:1,slim:1,cheek:1,eye:1,nose:1,bridge:1};
+var DEFAULTS={vface:0,flen:0,chinl:0,chinw:0,hollow:0,slim:40,cheek:0,eye:20,nose:0,bridge:0,smooth:50,white:20,famt:80};
 var MAXN=64, MAXE=6, TAPS=6;
 
 var FILTERS=[
@@ -320,7 +322,7 @@ function updateUI(){
   show("reLive",photo&&S.liveOK===true);show("reCam",photo&&S.liveOK!==true);
   show("flip",live);show("shutter",live);
   show("sizeRow",photo&&!!S.manual&&!S.faces.length);
-  [sl.slim,sl.chinl,sl.chinw,sl.hollow,sl.cheek,sl.eye,sl.nose,sl.bridge,sl.smooth,sl.white,$("compare"),$("reset")].forEach(function(e){e.disabled=idle;});
+  [sl.slim,sl.vface,sl.flen,sl.chinl,sl.chinw,sl.hollow,sl.cheek,sl.eye,sl.nose,sl.bridge,sl.smooth,sl.white,$("compare"),$("reset")].forEach(function(e){e.disabled=idle;});
   Array.prototype.forEach.call(document.querySelectorAll(".pnote"),function(e){e.classList.toggle("hidden",photo);});
   Array.prototype.forEach.call(document.querySelectorAll(".pg"),function(e){e.classList.toggle("off",!photo);});
   sl.famt.disabled=idle||S.filter.id==="none";
@@ -378,7 +380,7 @@ function liqPush(x,y,dx,dy){var R=brushR(),cw=S.W/L.gw,ch=S.H/L.gh,d=L.d,rg=L.ra
 var JAW=[[3,0.042],[5,0.064],[7,0.048],[13,0.042],[11,0.064],[9,0.048]];
 function buildControls(){
   var list=[],eyes=[],fwMax=0;
-  var vS=sl.slim.value/100,vC=sl.cheek.value/100,vE=sl.eye.value/100,vN=sl.nose.value/100,vB=sl.bridge.value/100,vH=sl.chinl.value/100,vW=sl.chinw.value/100,vO=sl.hollow.value/100;
+  var vS=sl.slim.value/100,vC=sl.cheek.value/100,vE=sl.eye.value/100,vN=sl.nose.value/100,vB=sl.bridge.value/100,vH=sl.chinl.value/100,vW=sl.chinw.value/100,vO=sl.hollow.value/100,vV=sl.vface.value/100,vL=sl.flen.value/100;
   function add(px,py,tx,ty,amt,r){if(amt<=0||list.length>=MAXN)return;var dx=tx-px,dy=ty-py,l=Math.sqrt(dx*dx+dy*dy)||1;list.push([px,py,dx/l*amt,dy/l*amt,r]);}
   S.faces.forEach(function(f){
     var p=f.pts,c=p[30],fw=Math.hypot(p[16].x-p[0].x,p[16].y-p[0].y);if(!fw)return;fwMax=Math.max(fwMax,fw);
@@ -388,6 +390,10 @@ function buildControls(){
     [31,35].forEach(function(i){add(p[i].x,p[i].y,p[33].x,p[33].y,0.035*fw*vN,fw*0.13);});
     [[8,0.07],[7,0.045],[9,0.045]].forEach(function(a){var q=p[a[0]],tx=p[33].x,ty=p[33].y;if(vH>0){tx=2*q.x-tx;ty=2*q.y-ty;}add(q.x,q.y,tx,ty,a[1]*fw*Math.abs(vH),fw*0.28);});
     [[6,1,0.05],[7,1,0.03],[10,-1,0.05],[9,-1,0.03]].forEach(function(a){var q=p[a[0]],s=a[1]*(vW>0?-1:1);add(q.x,q.y,q.x+s*ux,q.y+s*uy,a[2]*fw*Math.abs(vW),fw*0.2);});
+    var dn={x:-uy,y:ux};if((p[8].x-p[27].x)*dn.x+(p[8].y-p[27].y)*dn.y<0){dn.x=-dn.x;dn.y=-dn.y;}
+    [[4,1,0.03],[5,1,0.05],[6,1,0.055],[7,1,0.035],[12,-1,0.03],[11,-1,0.05],[10,-1,0.055],[9,-1,0.035]].forEach(function(a){var q=p[a[0]];add(q.x,q.y,q.x+a[1]*ux,q.y+a[1]*uy,a[2]*fw*vV,fw*0.24);});
+    add(p[8].x,p[8].y,p[8].x+dn.x,p[8].y+dn.y,0.018*fw*vV,fw*0.2);
+    [[6,0.045],[8,0.06],[10,0.045]].forEach(function(a){var q=p[a[0]],s=vL>0?1:-1;add(q.x,q.y,q.x+s*dn.x,q.y+s*dn.y,a[1]*fw*Math.abs(vL),fw*0.48);});
     [[3,0.03],[4,0.035],[13,0.03],[12,0.035]].forEach(function(a){var q=p[a[0]];add(q.x,q.y,2*q.x-c.x,2*q.y-c.y,a[1]*fw*vO,fw*0.2);});
     [28,29].forEach(function(i){[-1,1].forEach(function(s){add(p[i].x+s*ux*fw*0.075,p[i].y+s*uy*fw*0.075,p[i].x,p[i].y,0.022*fw*vB,fw*0.11);});});
     if(vE>0)[[36,39],[42,45]].forEach(function(e){var cx=0,cy=0;for(var i=e[0];i<e[0]+6;i++){cx+=p[i].x/6;cy+=p[i].y/6;}
