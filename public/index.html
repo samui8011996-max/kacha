@@ -63,7 +63,7 @@ a.pill{color:var(--text);text-decoration:none}
 
 #panel{flex:none;background:var(--panel);border-top:1px solid var(--line);padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px));
   display:flex;flex-direction:column;gap:10px}
-.tabs{display:flex;gap:12px;justify-content:center}
+.tabs{display:flex;gap:10px;justify-content:center}
 .tab{font-size:14px;color:var(--mute);padding:4px 2px;border-bottom:2px solid transparent}
 .tab[aria-selected="true"]{color:var(--text);border-bottom-color:var(--rose)}
 .pane{display:flex;flex-direction:column;gap:8px;min-height:116px;justify-content:center}
@@ -147,6 +147,7 @@ input[type=text]:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
     <button class="tab" id="tabLiq" role="tab" aria-selected="false" aria-controls="paneLiq" type="button">液化</button>
     <button class="tab" id="tabDeco" role="tab" aria-selected="false" aria-controls="paneDeco" type="button">裝飾</button>
     <button class="tab" id="tabCrop" role="tab" aria-selected="false" aria-controls="paneCrop" type="button">裁切</button>
+    <button class="tab" id="tabMask" role="tab" aria-selected="false" aria-controls="paneMask" type="button">打碼</button>
   </div>
   <div class="pane" id="paneBeauty" role="tabpanel">
     <div class="row"><label for="smooth">磨皮</label><input type="range" id="smooth" min="0" max="100" value="50" disabled><output id="smoothV">50</output></div>
@@ -203,6 +204,18 @@ input[type=text]:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
       <p class="note">在照片上拖曳可以移動裁切框。</p>
     </div>
   </div>
+  <div class="pane hidden" id="paneMask" role="tabpanel">
+    <p class="note pnote">先拍照或匯入照片，再打碼。</p>
+    <div class="pg">
+      <div class="pair">
+        <button class="pill" id="maskAll" type="button">路人全打碼</button>
+        <button class="pill" id="maskClear" type="button" disabled>清除打碼</button>
+      </div>
+      <div class="row"><label for="mstr">強度</label><input type="range" id="mstr" min="0" max="100" value="60"><output id="mstrV">60</output></div>
+      <div class="row"><label for="mrad">大小</label><input type="range" id="mrad" min="5" max="40" value="12"><output id="mradV">12</output></div>
+      <p class="note">點臉可以打碼，再點一次取消。點其他地方可以手動加一塊。</p>
+    </div>
+  </div>
   <div class="tools">
     <button class="pill" id="compare" type="button" disabled>按住看原圖</button>
     <button id="shutter" class="hidden" type="button" aria-label="拍照"></button>
@@ -227,7 +240,7 @@ var B_DET="poeenUJmna7R7Li2cB4hRbOe/25yfaSLuNC7Oa07Vmx1Z4pYhUF+isqpl5K0UGVXroZEp
 
 var $=function(id){return document.getElementById(id)};
 var view=$("view"), stage=$("stage"), badge=$("badge"), marker=$("marker"), video=$("video");
-var sl={};["slim","vface","flen","chinl","chinw","hollow","cheek","eye","nose","bridge","smooth","white","fsize","famt","bsize","dsize","pen","csize"].forEach(function(k){sl[k]=$(k);});
+var sl={};["slim","vface","flen","chinl","chinw","hollow","cheek","eye","nose","bridge","smooth","white","fsize","famt","bsize","dsize","pen","csize","mstr","mrad"].forEach(function(k){sl[k]=$(k);});
 var FACE={vface:1,flen:1,chinl:1,chinw:1,hollow:1,slim:1,cheek:1,eye:1,nose:1,bridge:1};
 var DEFAULTS={vface:0,flen:0,chinl:0,chinw:0,hollow:0,slim:40,cheek:0,eye:20,nose:0,bridge:0,smooth:50,white:20,famt:80};
 var MAXN=64, MAXE=6, TAPS=6;
@@ -303,7 +316,8 @@ try{
 }catch(e){console.error(e);}
 
 /* ---------- state ---------- */
-var S={tab:"beauty",crop:null,eyes:new Float32Array(MAXE*4),ne:0,mode:"idle",liveOK:null,facing:"user",stream:null,W:0,H:0,faces:[],manual:null,showOrig:false,filter:FILTERS[0],seed:0,miss:0,
+var M={items:[]};
+var S={all:[],tab:"beauty",crop:null,eyes:new Float32Array(MAXE*4),ne:0,mode:"idle",liveOK:null,facing:"user",stream:null,W:0,H:0,faces:[],manual:null,showOrig:false,filter:FILTERS[0],seed:0,miss:0,
   ctl:new Float32Array(MAXN*4),rad:new Float32Array(MAXN),n:0,step:2,token:0};
 var work=document.createElement("canvas"),wctx=work.getContext("2d");
 var ov=$("deco"),octx=ov.getContext("2d");
@@ -436,6 +450,7 @@ function render(){
   if(fa>0){gl.uniform3f(u.uF1,F.con,F.sat,F.exp);gl.uniform3f(u.uF2,F.fade,F.grain,F.vig);
     gl.uniform3fv(u.uGain,F.gain);gl.uniform3fv(u.uSh,F.sh);gl.uniform3fv(u.uHi,F.hi);}
   gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  if(S.mode==="photo"&&M.items.length)drawDeco();
 }
 
 /* ---------- 臉部偵測 ---------- */
@@ -458,16 +473,17 @@ function detect(size){
   return loadModels().then(function(){
     return faceapi.detectAllFaces(work,new faceapi.TinyFaceDetectorOptions({inputSize:size,scoreThreshold:0.35})).withFaceLandmarks(true);
   }).then(function(r){
-    return r.slice(0,3).map(function(d){return {pts:d.landmarks.positions.map(function(p){return {x:p.x,y:p.y};})};})
-      .sort(function(a,b){return a.pts[30].x-b.pts[30].x;});
+    return r.map(function(d){var b=d.detection.box;return {area:b.width*b.height,pts:d.landmarks.positions.map(function(p){return {x:p.x,y:p.y};})};})
+      .sort(function(a,b){return b.area-a.area;}).slice(0,12);
   });
 }
+function top3(f){return f.slice(0,3).sort(function(a,b){return a.pts[30].x-b.pts[30].x;});}
 function photoDetect(keep){
   var token=++S.token;setBadge("正在找臉…");
   function manual(msg){S.manual={x:S.W/2,y:S.H*0.42,w:Math.min(S.W,S.H)*sl.fsize.value/100};setBadge(msg,true);}
-  detect(416).then(function(f){
+  detect(608).then(function(f){
     if(token!==S.token||S.mode!=="photo")return;
-    if(f.length){S.faces=f;S.manual=null;setBadge(f.length>1?"找到 "+f.length+" 張臉":"");setTimeout(function(){if(token===S.token)setBadge("");},1800);}
+    if(f.length){S.all=f;S.faces=top3(f);S.manual=null;setBadge(f.length>1?"找到 "+f.length+" 張臉":"");setTimeout(function(){if(token===S.token)setBadge("");},1800);}
     else if(keep&&S.faces.length){setBadge("");}
     else{S.faces=[];manual("沒有自動找到臉。點一下臉的中心，再調整「臉大小」。");}
     buildControls();updateUI();fit();render();
@@ -497,7 +513,7 @@ function startLive(facing){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){liveFail("no mediaDevices");return;}
   stopStream();
   navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}}}).then(function(st){
-    decoReset();S.stream=st;S.facing=facing;S.liveOK=true;S.mode="live";S.faces=[];S.manual=null;S.miss=0;S.token++;detDead=false;detErr=0;
+    decoReset();S.stream=st;S.facing=facing;S.liveOK=true;S.mode="live";S.faces=[];S.all=[];M.items=[];S.manual=null;S.miss=0;S.token++;detDead=false;detErr=0;
     video.srcObject=st;setBadge("");updateUI();
     var p=video.play();if(p&&p.catch)p.catch(function(){});
     liveRaf=requestAnimationFrame(liveFrame);
@@ -514,7 +530,7 @@ function liveFrame(){
   if(!detBusy&&!detDead){
     detBusy=true;
     detect(320).then(function(f){
-      detErr=0;
+      detErr=0;f=top3(f);
       if(S.mode!=="live")return;
       if(f.length){
         if(f.length===S.faces.length){f.forEach(function(nf,i){var op=S.faces[i].pts;nf.pts.forEach(function(p,j){p.x=op[j].x+(p.x-op[j].x)*0.55;p.y=op[j].y+(p.y-op[j].y)*0.55;});});}
@@ -562,6 +578,8 @@ Object.keys(sl).forEach(function(k){syncSlider(sl[k]);sl[k].addEventListener("in
   if(FACE[k]||k==="fsize")buildControls();
   if(k==="dsize"){var it=D.items[D.sel];if(it&&it.t!=="stroke"){it.s=sl.dsize.value/100;drawDeco();}}
   if(k==="csize"&&S.crop){S.crop.s=sl.csize.value/100;drawDeco();}
+  if(k==="mstr")drawDeco();
+  if(k==="mrad"){for(var mi=M.items.length-1;mi>=0;mi--){if(M.items[mi].manual){var mr=sl.mrad.value/100*Math.min(S.W,S.H);M.items[mi].rx=mr;M.items[mi].ry=mr*1.2;break;}}drawDeco();}
   schedule();});});
 
 var chips=$("chips");
@@ -571,7 +589,7 @@ function pickFilter(f){S.filter=f;
 FILTERS.forEach(function(f){var b=document.createElement("button");b.type="button";b.className="chip";b.textContent=f.name;b.dataset.id=f.id;
   b.setAttribute("aria-pressed",f.id==="none"?"true":"false");b.addEventListener("click",function(){pickFilter(f);});chips.appendChild(b);});
 
-var TABS={beauty:["tabBeauty","paneBeauty"],face:["tabFace","paneFace"],feat:["tabFeat","paneFeat"],filter:["tabFilter","paneFilter"],liq:["tabLiq","paneLiq"],deco:["tabDeco","paneDeco"],crop:["tabCrop","paneCrop"]};
+var TABS={beauty:["tabBeauty","paneBeauty"],face:["tabFace","paneFace"],feat:["tabFeat","paneFeat"],filter:["tabFilter","paneFilter"],liq:["tabLiq","paneLiq"],deco:["tabDeco","paneDeco"],crop:["tabCrop","paneCrop"],mask:["tabMask","paneMask"]};
 function tab(which){S.tab=which;Object.keys(TABS).forEach(function(k){var on=k===which;$(TABS[k][0]).setAttribute("aria-selected",on?"true":"false");show(TABS[k][1],on);});fit();}
 Object.keys(TABS).forEach(function(k){$(TABS[k][0]).addEventListener("click",function(){tab(k);});});
 $("liqUndo").addEventListener("click",function(){if(!L.undo.length)return;L.d=L.undo.pop();L.dirty=true;render();liqUI();});
@@ -602,10 +620,28 @@ function drawItem(c,it){
   if(it.t==="img"){c.drawImage(it.img,-z.w/2,-z.h/2,z.w,z.h);}
   else{c.font="700 "+z.fs+"px "+FONTS;c.textAlign="center";c.textBaseline="middle";c.shadowColor="rgba(0,0,0,.45)";c.shadowBlur=z.fs*0.12;c.fillStyle=it.color;c.fillText(it.text,0,0);}
   c.restore();}
+/* ---------- 打碼：把處理後的畫面縮成幾格再放大，蓋在臉上 ---------- */
+var mtmp=document.createElement("canvas"),mtx=mtmp.getContext("2d");
+function drawMask(c,m){
+  var x0=Math.max(0,Math.floor(m.x-m.rx)),y0=Math.max(0,Math.floor(m.y-m.ry)),x1=Math.min(S.W,Math.ceil(m.x+m.rx)),y1=Math.min(S.H,Math.ceil(m.y+m.ry)),w=x1-x0,h=y1-y0;
+  if(w<2||h<2)return;
+  var n=Math.round(15-9*sl.mstr.value/100),nw=Math.max(2,Math.round(n*w/(2*m.rx))),nh=Math.max(2,Math.round(nw*h/w));
+  mtmp.width=nw;mtmp.height=nh;mtx.imageSmoothingEnabled=true;mtx.drawImage(view,x0,y0,w,h,0,0,nw,nh);
+  c.save();c.beginPath();c.ellipse(m.x,m.y,m.rx,m.ry,0,0,6.2832);c.clip();c.imageSmoothingEnabled=false;c.drawImage(mtmp,0,0,nw,nh,x0,y0,w,h);c.restore();
+}
+function faceMask(f){var p=f.pts,fw=Math.hypot(p[16].x-p[0].x,p[16].y-p[0].y),top=Math.min(p[19].y,p[24].y)-fw*0.3,bot=p[8].y+fw*0.06;
+  return {x:(p[0].x+p[16].x)/2,y:(top+bot)/2,rx:fw*0.62,ry:Math.max(fw*0.6,(bot-top)/2)};}
+function maskHit(x,y){for(var i=M.items.length-1;i>=0;i--){var m=M.items[i],dx=(x-m.x)/m.rx,dy=(y-m.y)/m.ry;if(dx*dx+dy*dy<=1)return i;}return -1;}
+function faceHit(x,y){for(var i=0;i<S.all.length;i++){var m=faceMask(S.all[i]),dx=(x-m.x)/m.rx,dy=(y-m.y)/m.ry;if(dx*dx+dy*dy<=1)return i;}return -1;}
+function maskUI(){$("maskClear").disabled=!M.items.length;}
 function drawDeco(){
   if(!S.W)return;octx.clearRect(0,0,S.W,S.H);if(S.mode!=="photo")return;
+  M.items.forEach(function(m){drawMask(octx,m);});
   D.items.forEach(function(it){drawItem(octx,it);});
   var px=dpx(),it=D.items[D.sel];
+  if(S.tab==="mask"){octx.save();octx.lineWidth=1.5*px;
+    S.all.forEach(function(f){var m=faceMask(f);if(maskHit(m.x,m.y)>=0)return;octx.setLineDash([6*px,4*px]);octx.strokeStyle="#fff";octx.beginPath();octx.ellipse(m.x,m.y,m.rx,m.ry,0,0,6.2832);octx.stroke();});
+    octx.setLineDash([]);octx.strokeStyle="#f2a5a0";M.items.forEach(function(m){octx.beginPath();octx.ellipse(m.x,m.y,m.rx,m.ry,0,0,6.2832);octx.stroke();});octx.restore();}
   if(S.tab==="deco"&&it&&it.t!=="stroke"){var z=itemSize(it);octx.save();octx.translate(it.x,it.y);octx.rotate(it.r);
     octx.setLineDash([6*px,4*px]);octx.lineWidth=1.5*px;octx.strokeStyle="#f2a5a0";octx.strokeRect(-z.w/2-6*px,-z.h/2-6*px,z.w+12*px,z.h+12*px);octx.restore();}
   if(S.tab==="crop"&&S.crop){var c=cropRect();octx.save();octx.fillStyle="rgba(10,8,12,.62)";
@@ -626,7 +662,11 @@ function decoUI(){var it=D.items[D.sel],has=!!it&&it.t!=="stroke";
   if(S.tab==="deco")fit();}
 function select(i){D.sel=i;var it=D.items[i];if(it&&it.t==="text")$("txt").value=it.text;decoUI();drawDeco();}
 function decoReset(){D.items=[];D.sel=-1;D.draw=false;S.crop=null;pickRatio(RATIOS[0]);decoUI();}
-function photoInit(){liqInit();decoReset();}
+function photoInit(){liqInit();M.items=[];S.all=[];maskUI();decoReset();}
+$("maskAll").addEventListener("click",function(){
+  if(S.all.length<2){toast("沒有找到其他人的臉。可以直接點照片手動打碼。");return;}
+  S.all.slice(1).forEach(function(f){var m=faceMask(f);if(maskHit(m.x,m.y)<0)M.items.push(m);});maskUI();drawDeco();});
+$("maskClear").addEventListener("click",function(){M.items=[];maskUI();drawDeco();});
 function center(){var c=cropRect();return {x:c.x+c.w/2,y:c.y+c.h/2};}
 COLORS.forEach(function(c){var b=document.createElement("button");b.type="button";b.className="sw";b.style.background=c[0];b.dataset.c=c[0];b.setAttribute("aria-label",c[1]);
   b.addEventListener("click",function(){D.color=c[0];var it=D.items[D.sel];if(it&&it.t==="text")it.color=c[0];decoUI();drawDeco();});$("swatches").appendChild(b);});
@@ -663,6 +703,11 @@ ov.addEventListener("pointerdown",function(e){
   var p=pt(e);ptrs[e.pointerId]=p;var n=Object.keys(ptrs).length,it;
   if(S.tab==="liq"){if(n>1||!L.d)return;L.undo.push(new Float32Array(L.d));if(L.undo.length>20)L.undo.shift();act={k:"liq",p:p};brushAt(e,p);return;}
   if(S.tab==="crop"){if(S.crop&&n===1)act={k:"crop",p:p,cx:S.crop.cx,cy:S.crop.cy};return;}
+  if(S.tab==="mask"){if(n>1)return;var mi=maskHit(p.x,p.y),fi;
+    if(mi>=0)M.items.splice(mi,1);
+    else if((fi=faceHit(p.x,p.y))>=0)M.items.push(faceMask(S.all[fi]));
+    else{var mr=sl.mrad.value/100*Math.min(S.W,S.H),mm={x:p.x,y:p.y,rx:mr,ry:mr*1.2,manual:true};M.items.push(mm);act={k:"mask",m:mm,p:p,x:p.x,y:p.y};}
+    maskUI();drawDeco();return;}
   if(S.tab==="deco"){
     if(D.draw){if(n>1)return;it={t:"stroke",color:D.color,w:Math.max(1,sl.pen.value/100*Math.min(S.W,S.H)*0.05),pts:[[p.x,p.y]]};D.items.push(it);act={k:"draw",it:it};decoUI();drawDeco();return;}
     it=D.items[D.sel];
@@ -677,6 +722,7 @@ ov.addEventListener("pointermove",function(e){
   var it=D.items[D.sel];
   if(act.k==="liq"){liqPush(act.p.x,act.p.y,p.x-act.p.x,p.y-act.p.y);act.p=p;brushAt(e,p);schedule();}
   else if(act.k==="crop"&&S.crop){S.crop.cx=act.cx+p.x-act.p.x;S.crop.cy=act.cy+p.y-act.p.y;drawDeco();}
+  else if(act.k==="mask"){act.m.x=act.x+p.x-act.p.x;act.m.y=act.y+p.y-act.p.y;drawDeco();}
   else if(act.k==="draw"){act.it.pts.push([p.x,p.y]);drawDeco();}
   else if(act.k==="pinch"&&it){var t=two();if(t){it.s=Math.max(0.1,Math.min(3,act.s*t.d/act.d));it.r=act.r+t.a-act.a;sl.dsize.value=Math.round(it.s*100);syncSlider(sl.dsize);drawDeco();}}
   else if(act.k==="drag"&&it){it.x=act.x+p.x-act.p.x;it.y=act.y+p.y-act.p.y;drawDeco();}
@@ -700,7 +746,7 @@ $("save").addEventListener("click",function(){
   if(S.mode!=="photo")return;
   S.showOrig=false;render();
   var cr=cropRect(),out=document.createElement("canvas");out.width=cr.w;out.height=cr.h;
-  var ox=out.getContext("2d");ox.drawImage(view,-cr.x,-cr.y);ox.translate(-cr.x,-cr.y);D.items.forEach(function(it){drawItem(ox,it);});
+  var ox=out.getContext("2d");ox.drawImage(view,-cr.x,-cr.y);ox.translate(-cr.x,-cr.y);M.items.forEach(function(m){drawMask(ox,m);});D.items.forEach(function(it){drawItem(ox,it);});
   out.toBlob(function(blob){
     if(!blob){toast("照片輸出失敗，請再試一次。");return;}
     if(!dl){
