@@ -284,17 +284,18 @@ var BIL="vec3 bil(sampler2D t,vec2 dir){vec3 c=texture2D(t,vUv).rgb;vec3 s=c;flo
  "s+=a*wa+b*wb;ws+=wa+wb;}return s/ws;}";
 var FS_H=HEAD+"uniform sampler2D uTex;uniform vec2 uDir;"+BIL+"void main(){gl_FragColor=vec4(bil(uTex,uDir),1.0);}";
 var FS_F=HEAD+"uniform sampler2D uTex;uniform sampler2D uOrig;uniform vec2 uDir;uniform vec2 uSize;uniform float uSmooth;uniform float uWhite;"+
- "uniform float uFAmt;uniform vec3 uF1;uniform vec3 uF2;uniform vec3 uGain;uniform vec3 uSh;uniform vec3 uHi;uniform float uSeed;uniform int uNS;uniform vec4 uSA["+MAXS+"];uniform vec4 uSB["+MAXS+"];"+BIL+
+ "uniform float uFAmt;uniform vec3 uF1;uniform vec3 uF2;uniform vec3 uGain;uniform vec3 uSh;uniform vec3 uHi;uniform float uSeed;uniform int uNS;uniform vec4 uSA["+MAXS+"];uniform vec4 uSB["+MAXS+"];uniform vec2 uSC["+MAXS+"];"+BIL+
  "const vec3 LUMA=vec3(0.299,0.587,0.114);"+
  "float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}"+
- "vec3 disc(vec2 uv,float r){vec3 s=vec3(0.0);for(int i=0;i<12;i++){float f=float(i);float a=f*2.39996;float d=r*sqrt((f+0.5)/12.0);s+=texture2D(uOrig,uv+vec2(cos(a),sin(a))*d/uSize).rgb;}return s/12.0;}"+
+ "vec3 disc(sampler2D tx,vec2 uv,float r){vec3 s=vec3(0.0);for(int i=0;i<16;i++){float f=float(i);float a=f*2.39996;float d=r*sqrt((f+0.5)/16.0);s+=texture2D(tx,uv+vec2(cos(a),sin(a))*d/uSize).rgb;}return s/16.0;}"+
  "void main(){vec3 o=texture2D(uOrig,vUv).rgb;"+
  "float cb=-0.169*o.r-0.331*o.g+0.5*o.b+0.5;float cr=0.5*o.r-0.419*o.g-0.081*o.b+0.5;float y=dot(o,LUMA);"+
  "float skin=smoothstep(0.28,0.33,cb)*(1.0-smoothstep(0.49,0.53,cb))*smoothstep(0.51,0.545,cr)*(1.0-smoothstep(0.67,0.71,cr))*smoothstep(0.12,0.25,y);"+
  "vec3 c=o;if(uSmooth>0.001){vec3 sm=bil(uTex,uDir);c=mix(o,sm,uSmooth*0.9*skin);}"+
- "vec2 q=vUv*uSize;for(int i=0;i<"+MAXS+";i++){if(i>=uNS)break;vec4 A=uSA[i];vec4 B=uSB[i];vec2 d=(q-A.xy)/A.zw;float t=1.0-dot(d,d);if(t>0.0){float w=smoothstep(0.0,0.6,t)*B.w;"+
- "if(B.z>0.5){vec3 m=disc(vUv,A.z*0.8);c+=max(m-c,vec3(0.0))*w*0.9*skin;}"+
- "else{vec3 m=disc(vUv,A.z*0.5);vec3 rf=disc(B.xy/uSize,A.z*0.5);float g=clamp(dot(rf,LUMA)/max(dot(m,LUMA),0.05),1.0,1.4);vec3 b=c*g;float lb=dot(b,LUMA);b=mix(b,vec3(lb)+(rf-dot(rf,LUMA)),0.35);c=mix(c,clamp(b,0.0,1.0),w*0.85);}}}"+
+ "vec2 q=vUv*uSize;for(int i=0;i<"+MAXS+";i++){if(i>=uNS)break;vec4 A=uSA[i];vec4 B=uSB[i];vec2 C=uSC[i];vec2 d0=q-A.xy;vec2 d=vec2(dot(d0,C),dot(d0,vec2(-C.y,C.x)))/A.zw;float t=1.0-dot(d,d);if(t>0.0){float w=t*t*B.w;"+
+ "if(B.z>0.5){vec3 m=disc(uOrig,vUv,A.w*1.6);vec3 bl=disc(uTex,vUv,A.w*0.35);c=mix(c,bl,w*0.35*skin);c+=max(m-c,vec3(0.0))*w*0.9*skin;}"+
+ "else{vec3 m=disc(uOrig,vUv,A.w*1.1);vec3 bl=disc(uTex,vUv,A.w*0.3);vec3 rf=disc(uOrig,B.xy/uSize,A.w*1.1);float g=clamp(dot(rf,LUMA)/max(dot(m,LUMA),0.05),1.0,1.3);"+
+ "vec3 b=mix(c,bl,0.75)*g;float lb=dot(b,LUMA);b=mix(b,vec3(lb)+(rf-dot(rf,LUMA)),0.3);c=mix(c,clamp(b,0.0,1.0),w);}}}"+
  "if(uWhite>0.001){float b=1.0+uWhite*3.0;vec3 w=log(c*(b-1.0)+1.0)/log(b);c=mix(c,w,0.35+0.65*skin);}"+
  "if(uFAmt>0.001){vec3 g=c*uGain*uF1.z;float l=dot(g,LUMA);g=mix(vec3(l),g,uF1.y);g=(g-0.5)*uF1.x+0.5;"+
  "float l2=clamp(dot(g,LUMA),0.0,1.0);g+=uSh*(1.0-l2)*(1.0-l2)+uHi*l2*l2;g=uF2.x+g*(1.0-uF2.x);"+
@@ -329,7 +330,7 @@ try{
 
 /* ---------- state ---------- */
 var M={items:[]};
-var S={spA:new Float32Array(MAXS*4),spB:new Float32Array(MAXS*4),ns:0,all:[],tab:"beauty",crop:null,eyes:new Float32Array(MAXE*4),ne:0,mode:"idle",liveOK:null,facing:"user",stream:null,W:0,H:0,faces:[],manual:null,showOrig:false,filter:FILTERS[0],seed:0,miss:0,
+var S={spA:new Float32Array(MAXS*4),spB:new Float32Array(MAXS*4),spC:new Float32Array(MAXS*2),ns:0,all:[],tab:"beauty",crop:null,eyes:new Float32Array(MAXE*4),ne:0,mode:"idle",liveOK:null,facing:"user",stream:null,W:0,H:0,faces:[],manual:null,showOrig:false,filter:FILTERS[0],seed:0,miss:0,
   ctl:new Float32Array(MAXN*4),rad:new Float32Array(MAXN),n:0,step:2,token:0};
 var work=document.createElement("canvas"),wctx=work.getContext("2d");
 var ov=$("deco"),octx=ov.getContext("2d");
@@ -422,12 +423,16 @@ function buildControls(){
     [[6,0.045],[8,0.06],[10,0.045]].forEach(function(a){var q=p[a[0]],s=vL>0?1:-1;add(q.x,q.y,q.x+s*dn.x,q.y+s*dn.y,a[1]*fw*Math.abs(vL),fw*0.48);});
     [[3,0.03],[4,0.035],[13,0.03],[12,0.035]].forEach(function(a){var q=p[a[0]];add(q.x,q.y,2*q.x-c.x,2*q.y-c.y,a[1]*fw*vO,fw*0.2);});
     [28,29].forEach(function(i){[-1,1].forEach(function(s){add(p[i].x+s*ux*fw*0.075,p[i].y+s*uy*fw*0.075,p[i].x,p[i].y,0.022*fw*vB,fw*0.11);});});
-    if(vD>0||vF>0)[[36,39,31,48,-1],[42,45,35,54,1]].forEach(function(e){
-      var ex=0,ey=0;for(var i=e[0];i<e[0]+6;i++){ex+=p[i].x/6;ey+=p[i].y/6;}
-      var ew=Math.hypot(p[e[1]].x-p[e[0]].x,p[e[1]].y-p[e[0]].y),s=e[4];
-      if(vD>0&&spots.length<MAXS)spots.push([ex+dn.x*ew*0.55,ey+dn.y*ew*0.55,ew*0.9,ew*0.45,ex+dn.x*ew*1.4,ey+dn.y*ew*1.4,0,vD]);
-      if(vF>0){var ax=p[e[2]].x+s*ux*fw*0.035,ay=p[e[2]].y+s*uy*fw*0.035,bx=p[e[3]].x+s*ux*fw*0.05+dn.x*fw*0.02,by=p[e[3]].y+s*uy*fw*0.05+dn.y*fw*0.02;
-        [0.15,0.55,0.95].forEach(function(k){if(spots.length<MAXS)spots.push([ax+(bx-ax)*k,ay+(by-ay)*k,fw*0.055,fw*0.075,0,0,1,vF]);});}
+    /* 黑眼圈、法令紋：沿著眼睛／紋路方向的斜橢圓。[cx,cy,長軸,短軸, 參考點x,y, 類型, 強度, cos,sin] */
+    var eax=0,eay=0;for(var ei=0;ei<6;ei++){eax+=p[42+ei].x-p[36+ei].x;eay+=p[42+ei].y-p[36+ei].y;}
+    var eal=Math.hypot(eax,eay)||1;eax/=eal;eay/=eal;
+    if(vD>0||vF>0)[[36,39,40,41,31,48,-1],[42,45,46,47,35,54,1]].forEach(function(e){
+      var ew=Math.hypot(p[e[1]].x-p[e[0]].x,p[e[1]].y-p[e[0]].y)||1,s=e[6];
+      var ax=eax,ay=eay,nx=-ay,ny=ax;if(nx*dn.x+ny*dn.y<0){nx=-nx;ny=-ny;}
+      var lx=(p[e[2]].x+p[e[3]].x)/2,ly=(p[e[2]].y+p[e[3]].y)/2;
+      if(vD>0&&spots.length<MAXS)spots.push([lx+nx*ew*0.45-s*ax*ew*0.06,ly+ny*ew*0.45-s*ay*ew*0.06,ew*0.85,ew*0.36,lx+nx*ew*1.3,ly+ny*ew*1.3,0,vD,ax,ay]);
+      if(vF>0&&spots.length<MAXS){var fx=p[e[4]].x+s*ux*fw*0.05,fy=p[e[4]].y+s*uy*fw*0.05,gx=p[e[5]].x+s*ux*fw*0.085+dn.x*fw*0.02,gy=p[e[5]].y+s*uy*fw*0.085+dn.y*fw*0.02;
+        var fl=Math.hypot(gx-fx,gy-fy)||1;spots.push([(fx+gx)/2,(fy+gy)/2,fl*0.62,fw*0.055,0,0,1,vF,(gx-fx)/fl,(gy-fy)/fl]);}
     });
     if(vE>0)[[36,39],[42,45]].forEach(function(e){var cx=0,cy=0;for(var i=e[0];i<e[0]+6;i++){cx+=p[i].x/6;cy+=p[i].y/6;}
       var ew=Math.hypot(p[e[1]].x-p[e[0]].x,p[e[1]].y-p[e[0]].y);if(eyes.length<MAXE)eyes.push([cx,cy,ew*1.3,0.28*vE]);});
@@ -439,8 +444,8 @@ function buildControls(){
   }
   S.n=list.length;S.ctl.fill(0);S.rad.fill(1);
   list.forEach(function(c,i){S.ctl[i*4]=c[0];S.ctl[i*4+1]=c[1];S.ctl[i*4+2]=c[2];S.ctl[i*4+3]=c[3];S.rad[i]=c[4];});
-  S.ns=spots.length;S.spA.fill(0);S.spB.fill(0);for(var si=0;si<MAXS;si++){S.spA[si*4+2]=1;S.spA[si*4+3]=1;}
-  spots.forEach(function(sp,si){S.spA.set(sp.slice(0,4),si*4);S.spB.set(sp.slice(4,8),si*4);});
+  S.ns=spots.length;S.spA.fill(0);S.spB.fill(0);S.spC.fill(0);for(var si=0;si<MAXS;si++){S.spA[si*4+2]=1;S.spA[si*4+3]=1;}
+  spots.forEach(function(sp,si){S.spA.set(sp.slice(0,4),si*4);S.spB.set(sp.slice(4,8),si*4);S.spC.set(sp.slice(8,10),si*2);});
   S.ne=eyes.length;S.eyes.fill(0);for(var i=0;i<MAXE;i++)S.eyes[i*4+2]=1;
   eyes.forEach(function(e,i){S.eyes.set(e,i*4);});
   S.step=Math.max(1,fwMax?fwMax*0.011:Math.min(S.W,S.H)*0.004);
@@ -467,7 +472,7 @@ function render(){
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.useProgram(P.f.p);
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,texA);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texB);
   gl.uniform1i(u.uTex,0);gl.uniform1i(u.uOrig,1);gl.uniform1f(u.uFlip,1);gl.uniform2f(u.uDir,0,S.step/S.H);gl.uniform2f(u.uSize,S.W,S.H);
-  gl.uniform1i(u.uNS,o?0:S.ns);gl.uniform4fv(u.uSA,S.spA);gl.uniform4fv(u.uSB,S.spB);gl.uniform1f(u.uSmooth,sm);gl.uniform1f(u.uWhite,wh);gl.uniform1f(u.uFAmt,fa);gl.uniform1f(u.uSeed,S.seed);
+  gl.uniform1i(u.uNS,o?0:S.ns);gl.uniform4fv(u.uSA,S.spA);gl.uniform4fv(u.uSB,S.spB);gl.uniform2fv(u.uSC,S.spC);gl.uniform1f(u.uSmooth,sm);gl.uniform1f(u.uWhite,wh);gl.uniform1f(u.uFAmt,fa);gl.uniform1f(u.uSeed,S.seed);
   if(fa>0){gl.uniform3f(u.uF1,F.con,F.sat,F.exp);gl.uniform3f(u.uF2,F.fade,F.grain,F.vig);
     gl.uniform3fv(u.uGain,F.gain);gl.uniform3fv(u.uSh,F.sh);gl.uniform3fv(u.uHi,F.hi);}
   gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
