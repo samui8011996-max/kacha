@@ -161,7 +161,7 @@ input[type=text]:focus-visible{outline:2px solid var(--rose);outline-offset:1px}
     <div class="row"><label for="dark">黑眼圈</label><input type="range" id="dark" min="0" max="100" value="0" disabled><output id="darkV">0</output></div>
   </div>
   <div class="pane hidden" id="paneFace" role="tabpanel">
-    <div class="row"><label for="slim">瘦臉</label><input type="range" id="slim" min="0" max="100" value="40" disabled><output id="slimV">40</output></div>
+    <div class="row"><label for="slim">瘦臉</label><input type="range" id="slim" min="0" max="100" value="10" disabled><output id="slimV">10</output></div>
     <div class="row"><label for="vface">小V臉</label><input type="range" id="vface" min="0" max="100" value="0" disabled><output id="vfaceV">0</output></div>
     <div class="row"><label for="flen">臉長</label><input type="range" id="flen" min="-100" max="100" value="0" disabled><output id="flenV">0</output></div>
     <div class="row"><label for="hollow">補頰凹</label><input type="range" id="hollow" min="0" max="100" value="0" disabled><output id="hollowV">0</output></div>
@@ -250,7 +250,7 @@ var $=function(id){return document.getElementById(id)};
 var view=$("view"), stage=$("stage"), badge=$("badge"), marker=$("marker"), video=$("video");
 var sl={};["slim","vface","flen","chinl","chinw","hollow","cheek","eye","nose","bridge","smooth","white","fold","dark","fsize","famt","bsize","dsize","pen","csize","mstr","mrad"].forEach(function(k){sl[k]=$(k);});
 var FACE={fold:1,dark:1,vface:1,flen:1,chinl:1,chinw:1,hollow:1,slim:1,cheek:1,eye:1,nose:1,bridge:1};
-var DEFAULTS={fold:0,dark:0,vface:0,flen:0,chinl:0,chinw:0,hollow:0,slim:40,cheek:0,eye:20,nose:0,bridge:0,smooth:50,white:20,famt:80};
+var DEFAULTS={fold:0,dark:0,vface:0,flen:0,chinl:0,chinw:0,hollow:0,slim:10,cheek:0,eye:20,nose:0,bridge:0,smooth:50,white:20,famt:80};
 var MAXN=64, MAXE=6, MAXS=12, TAPS=6;
 
 var FILTERS=[
